@@ -1,0 +1,8 @@
+node_modules
+dist
+.env
+.DS_Store
+data/backups/*.tar.gz
+data/backups/*.sha256
+backend/test-data
+assets
