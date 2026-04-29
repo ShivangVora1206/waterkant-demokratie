@@ -6,3 +6,4 @@ data/backups/*.tar.gz
 data/backups/*.sha256
 backend/test-data
 assets
+instruction.md
