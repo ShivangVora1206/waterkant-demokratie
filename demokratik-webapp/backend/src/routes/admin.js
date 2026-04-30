@@ -27,6 +27,7 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
+const uploadCsv = multer({ storage: multer.memoryStorage() });
 
 router.post("/login", async (req, res) => {
   const db = getDb();
@@ -166,6 +167,60 @@ router.get("/todos", async (_req, res) => {
   const db = getDb();
   const todos = await db("todos").select("*").orderBy("id", "desc");
   return res.json(todos);
+});
+
+router.post("/todos/import", uploadCsv.single("csv"), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: "No CSV file uploaded." });
+  }
+  
+  const raw = req.file.buffer.toString("utf8");
+  const lines = raw.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  const rows = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    if (i === 0 && lines[i].toLowerCase().startsWith("kategorie")) {
+      continue;
+    }
+    const trimmed = lines[i].trim();
+    const firstComma = trimmed.indexOf(",");
+    const lastComma = trimmed.lastIndexOf(",");
+    if (firstComma === -1 || lastComma === -1 || firstComma === lastComma) continue;
+    const secondLastComma = trimmed.lastIndexOf(",", lastComma - 1);
+    if (secondLastComma === -1) continue;
+
+    const category = trimmed.slice(0, firstComma).trim();
+    const todoText = trimmed.slice(firstComma + 1, secondLastComma).trim();
+    const effort = trimmed.slice(secondLastComma + 1, lastComma).trim();
+    const timeframe = trimmed.slice(lastComma + 1).trim();
+
+    if (category && todoText) {
+      rows.push({
+        title: todoText,
+        details: null,
+        category: category,
+        effort: effort || null,
+        timeframe: timeframe || null,
+        is_active: true
+      });
+    }
+  }
+
+  if (!rows.length) {
+    return res.status(400).json({ error: "No valid todos parsed from CSV." });
+  }
+
+  const db = getDb();
+  try {
+    await db.transaction(async (trx) => {
+      await trx("session_todos").del();
+      await trx("todos").del();
+      await trx("todos").insert(rows);
+    });
+    return res.json({ ok: true, count: rows.length });
+  } catch (error) {
+    return res.status(500).json({ error: "Database error during import" });
+  }
 });
 
 router.post("/todos", async (req, res) => {

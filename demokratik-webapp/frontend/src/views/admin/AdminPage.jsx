@@ -59,6 +59,7 @@ export default function AdminPage() {
   const [todoTimeframe, setTodoTimeframe] = useState("");
   const [todoCategory, setTodoCategory] = useState("");
   const [todoEffort, setTodoEffort] = useState("low");
+  const [csvFile, setCsvFile] = useState(null);
   const [notice, setNotice] = useState("");
 
   const authHeaders = useMemo(() => getAuthHeaders(token), [token]);
@@ -273,6 +274,41 @@ export default function AdminPage() {
     setTodos((prev) => prev.filter((row) => row.id !== id));
   }
 
+  async function importCsv(event) {
+    event.preventDefault();
+    if (!csvFile) {
+      setNotice("Please choose a CSV file.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("csv", csvFile);
+
+    try {
+      const response = await fetch("/api/admin/todos/import", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || "CSV import failed");
+      }
+
+      const { count } = await response.json();
+      setNotice(`Imported ${count} todos. Fetching latest...`);
+      setCsvFile(null);
+      
+      const newTodos = await api("/api/admin/todos", { headers: authHeaders });
+      setTodos(newTodos);
+    } catch (err) {
+      setNotice(err.message);
+    }
+  }
+
   async function savePrinterConfig(event) {
     event.preventDefault();
     if (!printerSettings) {
@@ -405,6 +441,17 @@ export default function AdminPage() {
 
         <section className="admin-section">
           <h2>Todos</h2>
+          
+          <form onSubmit={importCsv} className="stack-form" style={{ marginBottom: '2rem', padding: '1rem', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+            <h3>Import CSV</h3>
+            <p className="notice-text" style={{margin: '0.5rem 0'}}>Warning: Importing a CSV will completely replace all existing todos.</p>
+            <label>
+              CSV File
+              <input type="file" accept=".csv" onChange={(e) => setCsvFile(e.target.files?.[0] || null)} />
+            </label>
+            <button className="btn btn-primary" type="submit">Upload & Replace Todos</button>
+          </form>
+
           <form onSubmit={createTodo} className="stack-form">
             <label>
               Title
