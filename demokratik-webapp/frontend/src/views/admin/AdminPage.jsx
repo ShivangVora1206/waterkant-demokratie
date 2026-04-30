@@ -45,13 +45,20 @@ export default function AdminPage() {
   const [token, setToken] = useState(localStorage.getItem("adminToken") || "");
   const [images, setImages] = useState([]);
   const [questions, setQuestions] = useState([]);
+  const [todos, setTodos] = useState([]);
   const [responses, setResponses] = useState([]);
+  const [printerSettings, setPrinterSettings] = useState(null);
   const [selectedImageId, setSelectedImageId] = useState("");
   const [questionPrompt, setQuestionPrompt] = useState("");
   const [imageTitle, setImageTitle] = useState("");
   const [imageDisplayName, setImageDisplayName] = useState("");
   const [imageOrder, setImageOrder] = useState(0);
   const [imageFile, setImageFile] = useState(null);
+  const [todoTitle, setTodoTitle] = useState("");
+  const [todoDetails, setTodoDetails] = useState("");
+  const [todoTimeframe, setTodoTimeframe] = useState("");
+  const [todoCategory, setTodoCategory] = useState("");
+  const [todoEffort, setTodoEffort] = useState("low");
   const [notice, setNotice] = useState("");
 
   const authHeaders = useMemo(() => getAuthHeaders(token), [token]);
@@ -63,12 +70,16 @@ export default function AdminPage() {
     Promise.all([
       api("/api/admin/images", { headers: authHeaders }),
       api("/api/admin/questions", { headers: authHeaders }),
-      api("/api/admin/responses", { headers: authHeaders })
+      api("/api/admin/todos", { headers: authHeaders }),
+      api("/api/admin/responses", { headers: authHeaders }),
+      api("/api/admin/printer-settings", { headers: authHeaders })
     ])
-      .then(([imageRows, questionRows, responseRows]) => {
+      .then(([imageRows, questionRows, todoRows, responseRows, printerRow]) => {
         setImages(imageRows);
         setQuestions(questionRows);
+        setTodos(todoRows);
         setResponses(responseRows);
+        setPrinterSettings(printerRow);
       })
       .catch((err) => setNotice(err.message));
   }, [token, authHeaders]);
@@ -139,11 +150,64 @@ export default function AdminPage() {
   }
 
   async function triggerBackup() {
-    const result = await api("/api/admin/backup", {
-      method: "POST",
-      headers: authHeaders
-    });
-    setNotice(`Backup generated: ${result.file}`);
+    try {
+      const result = await api("/api/admin/backup", {
+        method: "POST",
+        headers: authHeaders
+      });
+
+      const downloadResponse = await fetch(result.download_url, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!downloadResponse.ok) {
+        const body = await downloadResponse.json().catch(() => ({}));
+        throw new Error(body.error || "Backup download failed");
+      }
+
+      const blob = await downloadResponse.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = result.file || "backup.tar.gz";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+
+      setNotice(`Backup generated and downloaded: ${result.file}`);
+    } catch (err) {
+      setNotice(err.message);
+    }
+  }
+
+  async function exportCsv() {
+    try {
+      const response = await fetch("/api/admin/responses?format=csv", {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || "CSV export failed");
+      }
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = "responses.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      setNotice(err.message);
+    }
   }
 
   async function removeImage(id) {
@@ -153,6 +217,86 @@ export default function AdminPage() {
     });
     setImages((prev) => prev.filter((row) => row.id !== id));
     setQuestions((prev) => prev.filter((row) => row.image_id !== id));
+  }
+
+  async function createTodo(event) {
+    event.preventDefault();
+    if (!todoTitle.trim()) {
+      setNotice("Please enter a todo title.");
+      return;
+    }
+
+    const todo = await api("/api/admin/todos", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({
+        title: todoTitle,
+        details: todoDetails,
+        timeframe: todoTimeframe,
+        category: todoCategory,
+        effort: todoEffort,
+        is_active: true
+      })
+    });
+
+    setTodos((prev) => [todo, ...prev]);
+    setTodoTitle("");
+    setTodoDetails("");
+    setTodoTimeframe("");
+    setTodoCategory("");
+    setTodoEffort("low");
+    setNotice("Todo created.");
+  }
+
+  async function toggleTodoActive(todo) {
+    const updated = await api(`/api/admin/todos/${todo.id}`, {
+      method: "PUT",
+      headers: authHeaders,
+      body: JSON.stringify({
+        title: todo.title,
+        details: todo.details,
+        timeframe: todo.timeframe,
+        category: todo.category,
+        effort: todo.effort,
+        is_active: !todo.is_active
+      })
+    });
+
+    setTodos((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+  }
+
+  async function removeTodo(id) {
+    await api(`/api/admin/todos/${id}`, {
+      method: "DELETE",
+      headers: authHeaders
+    });
+    setTodos((prev) => prev.filter((row) => row.id !== id));
+  }
+
+  async function savePrinterConfig(event) {
+    event.preventDefault();
+    if (!printerSettings) {
+      return;
+    }
+
+    const updated = await api("/api/admin/printer-settings", {
+      method: "PUT",
+      headers: authHeaders,
+      body: JSON.stringify(printerSettings)
+    });
+
+    setPrinterSettings(updated);
+    setNotice("Printer settings saved.");
+  }
+
+  async function testPrinter() {
+    const result = await api("/api/admin/printer-settings/test-print", {
+      method: "POST",
+      headers: authHeaders
+    });
+    if (result.ok) {
+      setNotice("Printer test sent.");
+    }
   }
 
   return (
@@ -244,9 +388,9 @@ export default function AdminPage() {
         <section className="admin-section">
           <h2>Responses</h2>
           <div className="admin-actions">
-            <a className="btn btn-ghost" href="/api/admin/responses?format=csv" target="_blank" rel="noreferrer">
+            <button className="btn btn-ghost" onClick={exportCsv}>
               Export CSV
-            </a>
+            </button>
             <button className="btn btn-primary" onClick={triggerBackup}>Create Backup</button>
           </div>
           <ul className="admin-list compact">
@@ -257,6 +401,135 @@ export default function AdminPage() {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section className="admin-section">
+          <h2>Todos</h2>
+          <form onSubmit={createTodo} className="stack-form">
+            <label>
+              Title
+              <input value={todoTitle} onChange={(e) => setTodoTitle(e.target.value)} />
+            </label>
+            <label>
+              Details
+              <input value={todoDetails} onChange={(e) => setTodoDetails(e.target.value)} />
+            </label>
+            <label>
+              Timeframe
+              <input value={todoTimeframe} onChange={(e) => setTodoTimeframe(e.target.value)} placeholder="e.g. 2026-2030" />
+            </label>
+            <label>
+              Category
+              <input value={todoCategory} onChange={(e) => setTodoCategory(e.target.value)} placeholder="e.g. Wohnen" />
+            </label>
+            <label>
+              Effort
+              <select value={todoEffort} onChange={(e) => setTodoEffort(e.target.value)}>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </label>
+            <button className="btn btn-primary" type="submit">Add todo</button>
+          </form>
+
+          <ul className="admin-list">
+            {todos.map((todo) => (
+              <li key={todo.id}>
+                <div>
+                  <strong>{todo.title}</strong>
+                  {todo.details ? <p>{todo.details}</p> : null}
+                  <p>
+                    <small>
+                      {todo.category ? `Category: ${todo.category} | ` : ""}
+                      {todo.timeframe ? `Timeframe: ${todo.timeframe} | ` : ""}
+                      {todo.effort ? `Effort: ${todo.effort}` : ""}
+                    </small>
+                  </p>
+                  <p>Status: {todo.is_active ? "Active" : "Inactive"}</p>
+                </div>
+                <div className="admin-actions">
+                  <button className="btn btn-ghost" onClick={() => toggleTodoActive(todo)}>
+                    {todo.is_active ? "Deactivate" : "Activate"}
+                  </button>
+                  <button className="btn btn-ghost" onClick={() => removeTodo(todo.id)}>Delete</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="admin-section">
+          <h2>Receipt Printer</h2>
+          {printerSettings ? (
+            <form onSubmit={savePrinterConfig} className="stack-form">
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={Boolean(printerSettings.enabled)}
+                  onChange={(e) => setPrinterSettings((prev) => ({ ...prev, enabled: e.target.checked }))}
+                />
+                Enabled
+              </label>
+              <label>
+                Host
+                <input
+                  value={printerSettings.host || ""}
+                  onChange={(e) => setPrinterSettings((prev) => ({ ...prev, host: e.target.value }))}
+                  placeholder="192.168.1.50"
+                />
+              </label>
+              <label>
+                Port
+                <input
+                  type="number"
+                  value={printerSettings.port || 9100}
+                  onChange={(e) => setPrinterSettings((prev) => ({ ...prev, port: Number(e.target.value) }))}
+                />
+              </label>
+              <label>
+                Receipt title
+                <input
+                  value={printerSettings.receipt_title || ""}
+                  onChange={(e) => setPrinterSettings((prev) => ({ ...prev, receipt_title: e.target.value }))}
+                />
+              </label>
+              <label>
+                Footer text
+                <input
+                  value={printerSettings.footer_text || ""}
+                  onChange={(e) => setPrinterSettings((prev) => ({ ...prev, footer_text: e.target.value }))}
+                />
+              </label>
+              <label>
+                Barcode message
+                <input
+                  value={printerSettings.barcode_message || ""}
+                  onChange={(e) => setPrinterSettings((prev) => ({ ...prev, barcode_message: e.target.value }))}
+                />
+              </label>
+              <label>
+                Paper width
+                <input
+                  type="number"
+                  value={printerSettings.paper_width || 42}
+                  onChange={(e) => setPrinterSettings((prev) => ({ ...prev, paper_width: Number(e.target.value) }))}
+                />
+              </label>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={Boolean(printerSettings.cut_paper)}
+                  onChange={(e) => setPrinterSettings((prev) => ({ ...prev, cut_paper: e.target.checked }))}
+                />
+                Cut paper after print
+              </label>
+              <div className="admin-actions">
+                <button className="btn btn-primary" type="submit">Save printer settings</button>
+                <button className="btn btn-ghost" type="button" onClick={testPrinter}>Print test receipt</button>
+              </div>
+            </form>
+          ) : null}
         </section>
       </div>
     </main>

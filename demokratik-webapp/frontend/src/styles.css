@@ -48,12 +48,16 @@ h3 {
 .image-screen {
   padding: 0;
   position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #0f1724;
 }
 
 .fullscreen-image {
-  width: 100vw;
-  height: 100vh;
-  object-fit: cover;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .overlay-hint {

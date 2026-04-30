@@ -11,6 +11,7 @@ import { stringify } from "csv-stringify/sync";
 import { getDb, getPaths } from "../db.js";
 import { config } from "../config.js";
 import { requireAdmin } from "../middleware/auth.js";
+import { getPrinterSettings, printTestReceipt, savePrinterSettings } from "../services/receiptPrinter.js";
 
 const execFileAsync = promisify(execFile);
 const router = express.Router();
@@ -159,6 +160,91 @@ router.delete("/questions/:id", async (req, res) => {
     return res.status(404).json({ error: "Question not found" });
   }
   return res.json({ ok: true });
+});
+
+router.get("/todos", async (_req, res) => {
+  const db = getDb();
+  const todos = await db("todos").select("*").orderBy("id", "desc");
+  return res.json(todos);
+});
+
+router.post("/todos", async (req, res) => {
+  const db = getDb();
+  const { title, details, is_active, category, effort, timeframe } = req.body;
+  if (!title || !String(title).trim()) {
+    return res.status(400).json({ error: "title is required" });
+  }
+
+  const [id] = await db("todos").insert({
+    title: String(title).trim(),
+    details: details ? String(details) : null,
+    is_active: Boolean(is_active ?? true),
+    category: category ? String(category) : null,
+    effort: effort ? String(effort) : null,
+    timeframe: timeframe ? String(timeframe) : null
+  });
+
+  const todo = await db("todos").where({ id }).first();
+  return res.status(201).json(todo);
+});
+
+router.put("/todos/:id", async (req, res) => {
+  const db = getDb();
+  const id = Number(req.params.id);
+  const todo = await db("todos").where({ id }).first();
+  if (!todo) {
+    return res.status(404).json({ error: "Todo not found" });
+  }
+
+  const patch = {
+    title: req.body.title !== undefined ? String(req.body.title).trim() : todo.title,
+    details: req.body.details !== undefined ? (req.body.details ? String(req.body.details) : null) : todo.details,
+    is_active: req.body.is_active !== undefined ? Boolean(req.body.is_active) : todo.is_active,
+    category: req.body.category !== undefined ? (req.body.category ? String(req.body.category) : null) : todo.category,
+    effort: req.body.effort !== undefined ? (req.body.effort ? String(req.body.effort) : null) : todo.effort,
+    timeframe: req.body.timeframe !== undefined ? (req.body.timeframe ? String(req.body.timeframe) : null) : todo.timeframe
+  };
+
+  if (!patch.title) {
+    return res.status(400).json({ error: "title is required" });
+  }
+
+  await db("todos").where({ id }).update(patch);
+  const updatedTodo = await db("todos").where({ id }).first();
+  return res.json(updatedTodo);
+});
+
+router.delete("/todos/:id", async (req, res) => {
+  const db = getDb();
+  const id = Number(req.params.id);
+  const deleted = await db("todos").where({ id }).del();
+  if (!deleted) {
+    return res.status(404).json({ error: "Todo not found" });
+  }
+  return res.json({ ok: true });
+});
+
+router.get("/printer-settings", async (_req, res) => {
+  const settings = await getPrinterSettings();
+  return res.json(settings);
+});
+
+router.put("/printer-settings", async (req, res) => {
+  if (req.body.enabled && !req.body.host) {
+    return res.status(400).json({ error: "Printer host is required when enabled" });
+  }
+
+  const settings = await savePrinterSettings(req.body);
+  return res.json(settings);
+});
+
+router.post("/printer-settings/test-print", async (_req, res) => {
+  try {
+    await printTestReceipt();
+    return res.json({ ok: true });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ error: error.message || "Printer test failed" });
+  }
 });
 
 router.get("/responses", async (req, res) => {

@@ -1,6 +1,7 @@
 import express from "express";
 import crypto from "node:crypto";
 import { getDb } from "../db.js";
+import { printSessionTodosReceipt } from "../services/receiptPrinter.js";
 
 const router = express.Router();
 
@@ -15,10 +16,31 @@ router.post("/sessions", async (req, res) => {
 router.post("/sessions/:sessionUid/complete", async (req, res) => {
   const db = getDb();
   const { sessionUid } = req.params;
-  const updated = await db("sessions").where({ session_uid: sessionUid }).update({ ended_at: db.fn.now() });
-  if (!updated) {
+  const session = await db("sessions").where({ session_uid: sessionUid }).first("id");
+  if (!session) {
     return res.status(404).json({ error: "Session not found" });
   }
+
+  await db("sessions").where({ id: session.id }).update({ ended_at: db.fn.now() });
+
+  const existing = await db("session_todos").where({ session_id: session.id }).first("id");
+  if (!existing) {
+    const randomTodos = await db("todos")
+      .select("id")
+      .where({ is_active: true })
+      .orderByRaw("RANDOM()")
+      .limit(3);
+
+    if (randomTodos.length) {
+      await db("session_todos").insert(
+        randomTodos.map((todo) => ({
+          session_id: session.id,
+          todo_id: todo.id
+        }))
+      );
+    }
+  }
+
   return res.json({ ok: true });
 });
 
@@ -101,10 +123,39 @@ router.get("/sessions/:sessionUid/summary", async (req, res) => {
     .orderBy("q.order_index", "asc")
     .orderBy("r.id", "asc");
 
+  const selectedTodos = await db("session_todos as st")
+    .leftJoin("todos as t", "t.id", "st.todo_id")
+    .select("t.id", "t.title", "t.details", "t.category", "t.effort", "t.timeframe")
+    .where("st.session_id", session.id)
+    .orderBy("st.id", "asc");
+
   res.json({
     session,
-    responses: rows
+    responses: rows,
+    selected_todos: selectedTodos
   });
+});
+
+router.post("/sessions/:sessionUid/print-todos", async (req, res) => {
+  const db = getDb();
+  const { sessionUid } = req.params;
+  const session = await db("sessions").where({ session_uid: sessionUid }).first("id", "session_uid", "started_at", "ended_at");
+  if (!session) {
+    return res.status(404).json({ error: "Session not found" });
+  }
+
+  const selectedTodos = await db("session_todos as st")
+    .leftJoin("todos as t", "t.id", "st.todo_id")
+    .select("t.id", "t.title", "t.details", "t.category", "t.effort", "t.timeframe")
+    .where("st.session_id", session.id)
+    .orderBy("st.id", "asc");
+
+  try {
+    await printSessionTodosReceipt(session, selectedTodos);
+    return res.json({ ok: true, printed_count: selectedTodos.length });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ error: error.message || "Print failed" });
+  }
 });
 
 export default router;
