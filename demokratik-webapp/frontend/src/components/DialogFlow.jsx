@@ -25,10 +25,22 @@ export default function DialogFlow({ image, sessionUid, open, onClose, onComplet
   }, [open, image]);
 
   useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 0);
+    if (open && questions.length > 0) {
+      setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [open, index]);
+  }, [open, index, questions.length]);
+
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    }
+    if (open) {
+      window.addEventListener("keydown", onKeyDown);
+      return () => window.removeEventListener("keydown", onKeyDown);
+    }
+  }, [open, onClose]);
 
   if (!open || !image) {
     return null;
@@ -103,17 +115,23 @@ export default function DialogFlow({ image, sessionUid, open, onClose, onComplet
             className="dialog-input"
             value={answer}
             onChange={(event) => setAnswer(event.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                submitCurrent(e);
+              }
+            }}
             rows={4}
             aria-label="Answer input"
-            placeholder="Write your response here..."
+            placeholder="Write your response here... (Press Enter to submit)"
           />
           {error ? <p className="error-text">{error}</p> : null}
           <div className="dialog-actions">
             <button type="button" className="btn btn-ghost" onClick={onClose} disabled={saving}>
-              Close
+              ESC: Close
             </button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {index === questions.length - 1 ? "Finish image" : "Next question"}
+              {index === questions.length - 1 ? "ENTER: Finish image" : "ENTER: Next question"}
             </button>
           </div>
         </form>

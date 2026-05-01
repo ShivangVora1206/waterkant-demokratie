@@ -8,7 +8,6 @@ export default function ViewerPage() {
   const [sessionUid, setSessionUid] = useState("");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
-  const [completedImageIds, setCompletedImageIds] = useState(new Set());
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -24,6 +23,9 @@ export default function ViewerPage() {
 
         const list = await api("/api/images");
         setImages(list);
+        if (list.length > 0) {
+          setCurrentIndex(Math.floor(Math.random() * list.length));
+        }
       } catch (err) {
         setError(err.message);
       }
@@ -49,19 +51,14 @@ export default function ViewerPage() {
       return;
     }
 
-    const nextCompleted = new Set(completedImageIds);
-    nextCompleted.add(currentImage.id);
-    setCompletedImageIds(nextCompleted);
     setOpenDialog(false);
 
-    const lastImageReached = currentIndex >= images.length - 1;
-    if (lastImageReached) {
+    try {
       await api(`/api/sessions/${sessionUid}/complete`, { method: "POST" });
       navigate(`/summary/${sessionUid}`);
-      return;
+    } catch (err) {
+      setError(err.message);
     }
-
-    setCurrentIndex((index) => index + 1);
   }
 
   if (error) {
