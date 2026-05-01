@@ -99,7 +99,7 @@ export default function SummaryPage() {
             </button>
           ) : null}
           <button className="btn btn-primary" onClick={() => navigate("/")}>Start new session</button>
-          <Link className="btn btn-ghost" to="/admin">Admin panel</Link>
+          {/* <Link className="btn btn-ghost" to="/admin">Admin panel</Link> */}
         </div>
       </div>
     </main>

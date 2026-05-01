@@ -84,7 +84,7 @@ export default function ViewerPage() {
     <main className="screen image-screen">
       <img className="fullscreen-image" src={currentImage.media_url} alt={currentImage.title || "Presentation image"} />
       <div className="overlay-hint">
-        <p>{currentImage.title || currentImage.display_name || "Untitled image"}</p>
+        {/* <p>{currentImage.title || currentImage.display_name || "Untitled image"}</p> */}
         <button className="btn btn-primary" onClick={() => setOpenDialog(true)}>Press Enter to answer</button>
       </div>
 
