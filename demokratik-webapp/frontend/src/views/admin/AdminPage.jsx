@@ -211,6 +211,25 @@ export default function AdminPage() {
     }
   }
 
+  async function updateImageOrder(image, newOrder) {
+    if (image.order_index === newOrder) return;
+    const updated = await api(`/api/admin/images/${image.id}`, {
+      method: "PUT",
+      headers: authHeaders,
+      body: JSON.stringify({
+        title: image.title,
+        display_name: image.display_name,
+        order_index: newOrder
+      })
+    });
+    setImages((prev) => {
+      const copy = prev.map((row) => (row.id === updated.id ? updated : row));
+      copy.sort((a, b) => a.order_index - b.order_index || a.id - b.id);
+      return copy;
+    });
+    setNotice("Image order updated.");
+  }
+
   async function removeImage(id) {
     await api(`/api/admin/images/${id}`, {
       method: "DELETE",
@@ -382,7 +401,16 @@ export default function AdminPage() {
                   <strong>{image.title || image.display_name || image.filename}</strong>
                   <p>{image.image_uid}</p>
                 </div>
-                <button className="btn btn-ghost" onClick={() => removeImage(image.id)}>Delete</button>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <label>Order:</label>
+                  <input
+                    type="number"
+                    defaultValue={image.order_index}
+                    onBlur={(e) => updateImageOrder(image, Number(e.target.value))}
+                    style={{ width: "60px" }}
+                  />
+                  <button className="btn btn-ghost" onClick={() => removeImage(image.id)}>Delete</button>
+                </div>
               </li>
             ))}
           </ul>
