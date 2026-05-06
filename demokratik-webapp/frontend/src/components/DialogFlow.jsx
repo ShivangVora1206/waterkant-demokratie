@@ -106,7 +106,7 @@ export default function DialogFlow({ image, sessionUid, open, onClose, onComplet
     <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-label="Fragedialog">
       <div className="dialog-card">
         <p className="dialog-step">
-          Question {index + 1} of {questions.length}
+          Frage {index + 1} von {questions.length}
         </p>
         <h2 className="dialog-title">{currentQuestion.prompt}</h2>
         <form onSubmit={submitCurrent}>
