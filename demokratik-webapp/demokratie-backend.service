@@ -1,0 +1,25 @@
+[Unit]
+Description=Demokratie Backend Node.js Server
+After=network.target
+
+[Service]
+# Modify the User and Group as needed for your deployment environment
+User=pi
+Group=pi
+
+# Set the working directory to the backend folder
+WorkingDirectory=/home/pi/demokratik-webapp/backend
+
+# The command to start the backend
+ExecStart=/usr/bin/node src/index.js
+
+# Restart policy
+Restart=always
+RestartSec=5
+
+# Environment variables if necessary
+Environment=NODE_ENV=production
+# Environment=PORT=3000
+
+[Install]
+WantedBy=multi-user.target
