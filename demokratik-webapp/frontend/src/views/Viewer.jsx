@@ -46,14 +46,6 @@ export default function ViewerPage() {
   };
 
   useEffect(() => {
-    if (images.length <= 1 || openDialog) return;
-    const interval = setInterval(() => {
-      goToNextRandom();
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [images.length, openDialog]);
-
-  useEffect(() => {
     function onKeyDown(event) {
       if (event.key === "Enter" && !openDialog && images.length) {
         const img = images[currentIndex];

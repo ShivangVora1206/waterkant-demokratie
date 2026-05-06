@@ -62,16 +62,18 @@ h3 {
 
 .overlay-hint {
   position: absolute;
-  bottom: 32px;
+  bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.4);
   border-radius: 999px;
-  box-shadow: var(--shadow);
-  padding: 14px 22px;
+  box-shadow: 0 4px 12px rgba(15, 23, 36, 0.05);
+  padding: 8px 16px;
   display: flex;
   gap: 14px;
   align-items: center;
+  backdrop-filter: blur(4px);
+  opacity: 0.8;
 }
 
 .center-card,
