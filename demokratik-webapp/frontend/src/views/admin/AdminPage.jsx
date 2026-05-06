@@ -124,7 +124,11 @@ export default function AdminPage() {
     }
 
     const created = await response.json();
-    setImages((prev) => [...prev, created]);
+    setImages((prev) => {
+      const copy = [...prev, created];
+      copy.sort((a, b) => a.order_index - b.order_index || a.id - b.id);
+      return copy;
+    });
     setImageTitle("");
     setImageDisplayName("");
     setImageOrder(0);

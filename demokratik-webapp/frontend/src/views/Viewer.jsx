@@ -24,7 +24,7 @@ export default function ViewerPage() {
         const list = await api("/api/images");
         setImages(list);
         if (list.length > 0) {
-          setCurrentIndex(Math.floor(Math.random() * list.length));
+          setCurrentIndex(0);
         }
       } catch (err) {
         setError(err.message);
@@ -33,6 +33,14 @@ export default function ViewerPage() {
 
     bootstrap();
   }, []);
+
+  useEffect(() => {
+    if (images.length <= 1 || openDialog) return;
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % images.length);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [images.length, openDialog]);
 
   useEffect(() => {
     function onKeyDown(event) {
