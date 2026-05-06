@@ -24,7 +24,7 @@ export default function ViewerPage() {
         const list = await api("/api/images");
         setImages(list);
         if (list.length > 0) {
-          setCurrentIndex(0);
+          setCurrentIndex(Math.floor(Math.random() * list.length));
         }
       } catch (err) {
         setError(err.message);
@@ -34,10 +34,21 @@ export default function ViewerPage() {
     bootstrap();
   }, []);
 
+  const goToNextRandom = () => {
+    setCurrentIndex((prev) => {
+      if (images.length <= 1) return 0;
+      let nextIndex = Math.floor(Math.random() * images.length);
+      if (nextIndex === prev) {
+        nextIndex = (nextIndex + 1) % images.length;
+      }
+      return nextIndex;
+    });
+  };
+
   useEffect(() => {
     if (images.length <= 1 || openDialog) return;
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % images.length);
+      goToNextRandom();
     }, 10000);
     return () => clearInterval(interval);
   }, [images.length, openDialog]);
@@ -45,12 +56,17 @@ export default function ViewerPage() {
   useEffect(() => {
     function onKeyDown(event) {
       if (event.key === "Enter" && !openDialog && images.length) {
-        setOpenDialog(true);
+        const img = images[currentIndex];
+        if (img && img.question_count > 0) {
+          setOpenDialog(true);
+        } else {
+          goToNextRandom();
+        }
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [openDialog, images.length]);
+  }, [openDialog, images, currentIndex]);
 
   const currentImage = useMemo(() => images[currentIndex], [images, currentIndex]);
 
@@ -90,7 +106,18 @@ export default function ViewerPage() {
       <img className="fullscreen-image" src={currentImage.media_url} alt={currentImage.title || "Presentation image"} />
       <div className="overlay-hint">
         {/* <p>{currentImage.title || currentImage.display_name || "Untitled image"}</p> */}
-        <button className="btn btn-primary" onClick={() => setOpenDialog(true)}>Press Enter to answer</button>
+        <button 
+          className="btn btn-primary" 
+          onClick={() => {
+            if (currentImage && currentImage.question_count > 0) {
+              setOpenDialog(true);
+            } else {
+              goToNextRandom();
+            }
+          }}
+        >
+          {currentImage && currentImage.question_count > 0 ? "Press Enter to answer" : "Press Enter for next image"}
+        </button>
       </div>
 
       <DialogFlow

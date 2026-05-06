@@ -50,9 +50,19 @@ router.get("/images", async (req, res) => {
     .select("id", "image_uid", "filename", "display_name", "title", "order_index")
     .orderBy("order_index", "asc")
     .orderBy("id", "asc");
+    
+  const questionCounts = await db("questions")
+    .select("image_id")
+    .count("id as count")
+    .groupBy("image_id");
+
+  const countMap = new Map();
+  for (const row of questionCounts) countMap.set(row.image_id, Number(row.count));
+
   const withUrl = images.map((image) => ({
     ...image,
-    media_url: `/media/${image.filename}`
+    media_url: `/media/${image.filename}`,
+    question_count: countMap.get(image.id) || 0
   }));
   res.json(withUrl);
 });
