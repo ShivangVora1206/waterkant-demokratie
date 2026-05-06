@@ -103,7 +103,7 @@ export default function DialogFlow({ image, sessionUid, open, onClose, onComplet
   }
 
   return (
-    <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-label="Question dialog">
+    <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-label="Fragedialog">
       <div className="dialog-card">
         <p className="dialog-step">
           Question {index + 1} of {questions.length}
@@ -122,16 +122,16 @@ export default function DialogFlow({ image, sessionUid, open, onClose, onComplet
               }
             }}
             rows={4}
-            aria-label="Answer input"
-            placeholder="Write your response here... (Press Enter to submit)"
+            aria-label="Antwort eingeben"
+            placeholder="Schreibe deine Antwort hier ein... (Drücke Enter, um sie abzuschicken)"
           />
           {error ? <p className="error-text">{error}</p> : null}
           <div className="dialog-actions">
             <button type="button" className="btn btn-ghost" onClick={onClose} disabled={saving}>
-              ESC: Close
+              ESC: Schließen
             </button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {index === questions.length - 1 ? "ENTER: Finish image" : "ENTER: Next question"}
+              {index === questions.length - 1 ? "ENTER: Bild fertigstellen" : "ENTER: Nächste Frage"}
             </button>
           </div>
         </form>

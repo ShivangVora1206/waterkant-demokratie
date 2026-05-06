@@ -107,7 +107,7 @@ export default function SummaryPage() {
         {/* Left Side: Summary & Actions */}
         <div style={{ flex: '1', display: 'flex', flexDirection: 'column', gap: '2rem', justifyContent: 'center' }}>
           <div>
-            <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>Session Summary</h1>
+            <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>Session Zusammenfassung</h1>
             <p className="summary-subtitle" style={{ fontSize: '1rem' }}>Session UID: {sessionUid}</p>
           </div>
           
@@ -119,7 +119,7 @@ export default function SummaryPage() {
                 onClick={printTodos} 
                 disabled={printing}
               >
-                {printing ? "Printing..." : "[ENTER] Print todos"}
+                {printing ? "Drucken..." : "[ENTER] Drucken todos"}
               </button>
             ) : null}
             <button 
@@ -127,7 +127,7 @@ export default function SummaryPage() {
               style={{ padding: '1.2rem', fontSize: '1.2rem' }} 
               onClick={() => navigate("/")}
             >
-              [SPACE] Start new session
+              [SPACE] Neue Sitzung starten
             </button>
           </div>
         </div>

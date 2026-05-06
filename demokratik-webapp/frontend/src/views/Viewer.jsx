@@ -8,6 +8,8 @@ export default function ViewerPage() {
   const [sessionUid, setSessionUid] = useState("");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
+  const [consecutiveNonQ, setConsecutiveNonQ] = useState(0);
+  const [targetConsecutive, setTargetConsecutive] = useState(2);
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -23,8 +25,17 @@ export default function ViewerPage() {
 
         const list = await api("/api/images");
         setImages(list);
+
         if (list.length > 0) {
-          setCurrentIndex(Math.floor(Math.random() * list.length));
+          const nonQs = list.map((img, i) => ({ img, i })).filter(x => !x.img.question_count);
+          if (nonQs.length > 0) {
+            setCurrentIndex(nonQs[Math.floor(Math.random() * nonQs.length)].i);
+            setConsecutiveNonQ(1);
+          } else {
+            setCurrentIndex(Math.floor(Math.random() * list.length));
+            setConsecutiveNonQ(0);
+          }
+          setTargetConsecutive(Math.random() > 0.5 ? 3 : 2);
         }
       } catch (err) {
         setError(err.message);
@@ -35,14 +46,37 @@ export default function ViewerPage() {
   }, []);
 
   const goToNextRandom = () => {
-    setCurrentIndex((prev) => {
-      if (images.length <= 1) return 0;
-      let nextIndex = Math.floor(Math.random() * images.length);
-      if (nextIndex === prev) {
+    if (images.length <= 1) return;
+
+    const nonQs = images.map((img, i) => ({ img, i })).filter(x => !x.img.question_count);
+    const qs = images.map((img, i) => ({ img, i })).filter(x => x.img.question_count > 0);
+
+    let nextIndex = 0;
+
+    if (nonQs.length === 0 || qs.length === 0) {
+      // Fallback if the user has only 1 type of image uploaded
+      nextIndex = Math.floor(Math.random() * images.length);
+      if (nextIndex === currentIndex) {
         nextIndex = (nextIndex + 1) % images.length;
       }
-      return nextIndex;
-    });
+    } else if (consecutiveNonQ < targetConsecutive) {
+      // Ensure we pick another non-question image
+      nextIndex = nonQs[Math.floor(Math.random() * nonQs.length)].i;
+      if (nextIndex === currentIndex && nonQs.length > 1) {
+        nextIndex = nonQs.find(x => x.i !== currentIndex).i;
+      }
+      setConsecutiveNonQ(prev => prev + 1);
+    } else {
+      // Met the quota! Show a question image
+      nextIndex = qs[Math.floor(Math.random() * qs.length)].i;
+      if (nextIndex === currentIndex && qs.length > 1) {
+        nextIndex = qs.find(x => x.i !== currentIndex).i;
+      }
+      setConsecutiveNonQ(0);
+      setTargetConsecutive(Math.random() > 0.5 ? 3 : 2);
+    }
+
+    setCurrentIndex(nextIndex);
   };
 
   useEffect(() => {
@@ -108,7 +142,7 @@ export default function ViewerPage() {
             }
           }}
         >
-          {currentImage && currentImage.question_count > 0 ? "Press Enter to answer" : "Press Enter for next image"}
+          {currentImage && currentImage.question_count > 0 ? "Drücke die Enter, um zu antworten" : "Drücke die Enter, um zum nächsten Bild zu gelangen"}
         </button>
       </div>
 
